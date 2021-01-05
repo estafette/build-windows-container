@@ -1,0 +1,95 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: build-windows-dockerfile
+  namespace: estafette-ci-jobs
+  labels:
+    createdBy: estafette
+    jobType: build
+spec:
+  backoffLimit: 6
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        createdBy: estafette
+        jobType: build
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectTerms:
+            - matchExpresssions:
+              - key: kuberenetes.io/os
+                operator: In
+                values:
+                - windows
+      containers:
+      - name: build
+        image: mcr.microsoft.com/windows/servercore:ltsc2019
+        env:
+        - name: GIT_DOWNLOAD_URL
+          value: https://github.com/git-for-windows/git/releases/download/v2.23.0.windows.1/MinGit-2.23.0-64-bit.zip
+        - name: GIT_DOWNLOAD_SHA256
+          value: 8f65208f92c0b4c3ae4c0cf02d4b5f6791d539cd1a07b2df62b7116467724735
+        - name: GIT_REPOSITORY
+          value: "${GIT_REPOSITORY}"
+        - name: BUILD_VERSION
+          value: "${BUILD_VERSION}"
+        - name: DOCKER_USERNAME
+          value: "${DOCKER_USERNAME}"
+        - name: DOCKER_PASSWORD
+          value: "${DOCKER_PASSWORD}"
+        command:
+        - powershell.exe
+        - -command
+        - >-
+          Write-Host ('Downloading {0} ...' -f $env:GIT_DOWNLOAD_URL);
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+          Invoke-WebRequest -Uri $env:GIT_DOWNLOAD_URL -OutFile 'git.zip';
+          Write-Host ('Verifying sha256 ({0}) ...' -f $env:GIT_DOWNLOAD_SHA256);
+          if ((Get-FileHash git.zip -Algorithm sha256).Hash -ne $env:GIT_DOWNLOAD_SHA256) {
+            Write-Host 'FAILED!';
+            exit 1;
+          };
+          Write-Host 'Expanding ...';
+          Expand-Archive -Path git.zip -DestinationPath C:\git\.;
+          
+          Write-Host 'Removing ...';
+          Remove-Item git.zip -Force;
+          
+          Write-Host 'Updating PATH ...';
+          $env:PATH = 'C:\git\cmd;C:\git\mingw64\bin;C:\git\usr\bin;' + $env:PATH;
+          [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine);
+          
+          Write-Host 'Verifying install ("git version") ...';
+          git version;
+          
+          Write-Host 'Complete.';
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: docker-socket
+          mountPath: \\.\pipe\docker_engine
+        - name: docker-cli
+          mountPath: C:/Program Files/Docker
+      restartPolicy: Never
+      tolerations:
+      - effect: NoSchedule
+        key: role
+        operator: Equal
+        value: privileged
+      - effect: NoSchedule
+        key: node.kubernetes.io/os
+        operator: Equal
+        value: windows
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: \\.\pipe\docker_engine
+      - name: docker-cli
+        hostPath:
+          path: C:/Program Files/Docker
