@@ -1,11 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: build-windows-dockerfile
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: build-windows-dockerfile
-  namespace: estafette-ci-jobs
-  labels:
-    createdBy: estafette
-    jobType: build
+  namespace: build-windows-dockerfile
 spec:
   backoffLimit: 6
   completions: 1
@@ -14,16 +16,13 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
-      labels:
-        createdBy: estafette
-        jobType: build
     spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectTerms:
-            - matchExpresssions:
-              - key: kuberenetes.io/os
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/os
                 operator: In
                 values:
                 - windows
@@ -39,6 +38,10 @@ spec:
           value: "${GIT_REPOSITORY}"
         - name: BUILD_VERSION
           value: "${BUILD_VERSION}"
+        - name: DOCKERFILE
+          value: "${DOCKERFILE}"
+        - name: DOCKER_IMAGE
+          value: "${DOCKER_IMAGE}"
         - name: DOCKER_USERNAME
           value: "${DOCKER_USERNAME}"
         - name: DOCKER_PASSWORD
