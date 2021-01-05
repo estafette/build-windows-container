@@ -9,7 +9,7 @@ metadata:
   name: build-windows-dockerfile
   namespace: build-windows-dockerfile
 spec:
-  backoffLimit: 6
+  backoffLimit: 1
   completions: 1
   parallelism: 1
   template:
@@ -52,7 +52,7 @@ spec:
         - >-
           Write-Host ('Downloading {0} ...' -f $env:GIT_DOWNLOAD_URL);
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
-          Invoke-WebRequest -Uri $env:GIT_DOWNLOAD_URL -OutFile 'git.zip';
+          Invoke-WebRequest -Uri $env:GIT_DOWNLOAD_URL -OutFile 'git.zip' -TimeoutSec 300;
           Write-Host ('Verifying sha256 ({0}) ...' -f $env:GIT_DOWNLOAD_SHA256);
           if ((Get-FileHash git.zip -Algorithm sha256).Hash -ne $env:GIT_DOWNLOAD_SHA256) {
             Write-Host 'FAILED!';
