@@ -16,6 +16,8 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app: build-windows-dockerfile
     spec:
       affinity:
         nodeAffinity:
@@ -36,8 +38,6 @@ spec:
           value: 8f65208f92c0b4c3ae4c0cf02d4b5f6791d539cd1a07b2df62b7116467724735
         - name: GIT_REPOSITORY
           value: "${GIT_REPOSITORY}"
-        - name: BUILD_VERSION
-          value: "${BUILD_VERSION}"
         - name: DOCKERFILE
           value: "${DOCKERFILE}"
         - name: DOCKER_IMAGE
@@ -58,20 +58,38 @@ spec:
             Write-Host 'FAILED!';
             exit 1;
           };
-          Write-Host 'Expanding ...';
+          Write-Host 'Expanding git.zip...';
           Expand-Archive -Path git.zip -DestinationPath C:\git\.;
           
           Write-Host 'Removing ...';
           Remove-Item git.zip -Force;
           
-          Write-Host 'Updating PATH ...';
+          Write-Host 'Updating PATH for git...';
           $env:PATH = 'C:\git\cmd;C:\git\mingw64\bin;C:\git\usr\bin;' + $env:PATH;
           [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine);
           
           Write-Host 'Verifying install ("git version") ...';
           git version;
           
-          Write-Host 'Complete.';
+          Write-Host 'Completed installing git.';
+
+          Write-Host 'Updating PATH for docker...';
+          $env:PATH = 'C:\Program Files\Docker;' + $env:PATH;
+          [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine);
+
+          Write-Host ('Cloning {0} to workdir ...' -f $env:GIT_REPOSITORY);
+          git clone $env:GIT_REPOSITORY workdir;
+          cd workdir;
+
+          Write-Host ('Building docker image {0} from file {1} ...' -f $env:DOCKER_IMAGE, $env:DOCKERFILE);
+          docker build -t $env:DOCKER_IMAGE -f $env:DOCKERFILE .;
+
+          Write-Host 'Logging in to docker hub...';
+          docker login -u $env:DOCKER_USERNAME -p $env:DOCKER_PASSWORD;
+
+          Write-Host ('Pusing docker image {0} to docker hub ...' -f $env:DOCKER_IMAGE);
+          docker push $env:DOCKER_IMAGE;
+
         securityContext:
           privileged: true
         volumeMounts:
