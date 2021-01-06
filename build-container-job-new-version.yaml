@@ -30,8 +30,12 @@ spec:
                 - windows
       containers:
       - name: build
-        image: estafette/golang:1.15.6-windowsservercore-ltsc2019
+        image: mcr.microsoft.com/windows/servercore:ltsc2019
         env:
+        - name: GIT_DOWNLOAD_URL
+          value: https://github.com/git-for-windows/git/releases/download/v2.23.0.windows.1/MinGit-2.23.0-64-bit.zip
+        - name: GIT_DOWNLOAD_SHA256
+          value: 8f65208f92c0b4c3ae4c0cf02d4b5f6791d539cd1a07b2df62b7116467724735
         - name: GIT_REPOSITORY
           value: "${GIT_REPOSITORY}"
         - name: DOCKERFILE
@@ -46,6 +50,31 @@ spec:
         - powershell.exe
         - -command
         - >-
+          netsh interface ipv4 show subinterfaces;
+
+          Write-Host ('Downloading {0} ...' -f $env:GIT_DOWNLOAD_URL);
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+          Invoke-WebRequest -Uri $env:GIT_DOWNLOAD_URL -OutFile 'git.zip' -TimeoutSec 300;
+          Write-Host ('Verifying sha256 ({0}) ...' -f $env:GIT_DOWNLOAD_SHA256);
+          if ((Get-FileHash git.zip -Algorithm sha256).Hash -ne $env:GIT_DOWNLOAD_SHA256) {
+            Write-Host 'FAILED!';
+            exit 1;
+          };
+          Write-Host 'Expanding git.zip...';
+          Expand-Archive -Path git.zip -DestinationPath C:\git\.;
+          
+          Write-Host 'Removing ...';
+          Remove-Item git.zip -Force;
+          
+          Write-Host 'Updating PATH for git...';
+          $env:PATH = 'C:\git\cmd;C:\git\mingw64\bin;C:\git\usr\bin;' + $env:PATH;
+          [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine);
+          
+          Write-Host 'Verifying install ("git version") ...';
+          git version;
+          
+          Write-Host 'Completed installing git.';
+
           Write-Host 'Updating PATH for docker...';
           $env:PATH = 'C:\Program Files\Docker;' + $env:PATH;
           [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine);
