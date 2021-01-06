@@ -50,6 +50,8 @@ spec:
         - powershell.exe
         - -command
         - >-
+          netsh interface ipv4 show subinterfaces;
+
           Write-Host ('Downloading {0} ...' -f $env:GIT_DOWNLOAD_URL);
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
           Invoke-WebRequest -Uri $env:GIT_DOWNLOAD_URL -OutFile 'git.zip' -TimeoutSec 300;
@@ -77,9 +79,9 @@ spec:
           $env:PATH = 'C:\Program Files\Docker;' + $env:PATH;
           [Environment]::SetEnvironmentVariable('PATH', $env:PATH, [EnvironmentVariableTarget]::Machine);
 
-          Write-Host ('Cloning {0} to workdir ...' -f $env:GIT_REPOSITORY);
-          git clone $env:GIT_REPOSITORY workdir;
-          cd workdir;
+          Write-Host ('Cloning {0} to C:/work ...' -f $env:GIT_REPOSITORY);
+          git clone $env:GIT_REPOSITORY C:/work;
+          cd C:/work;
 
           Write-Host ('Building docker image {0} from file {1} ...' -f $env:DOCKER_IMAGE, $env:DOCKERFILE);
           docker build -t $env:DOCKER_IMAGE -f $env:DOCKERFILE .;
@@ -87,11 +89,18 @@ spec:
           Write-Host 'Logging in to docker hub...';
           docker login -u $env:DOCKER_USERNAME -p $env:DOCKER_PASSWORD;
 
-          Write-Host ('Pusing docker image {0} to docker hub ...' -f $env:DOCKER_IMAGE);
+          Write-Host ('Pushing docker image {0} to docker hub ...' -f $env:DOCKER_IMAGE);
           docker push $env:DOCKER_IMAGE;
 
         securityContext:
           privileged: true
+        resources:
+          limits:
+            cpu: "6"
+            memory: "21474836480"
+          requests:
+            cpu: "6"
+            memory: "21474836480"
         volumeMounts:
         - name: docker-socket
           mountPath: \\.\pipe\docker_engine
