@@ -34,6 +34,8 @@ spec:
         env:
         - name: GIT_REPOSITORY
           value: "${GIT_REPOSITORY}"
+        - name: ESTAFETTE_GIT_NAME
+          value: "${ESTAFETTE_GIT_NAME}"
         - name: DOCKERFILE
           value: "${DOCKERFILE}"
         - name: DOCKER_IMAGE
@@ -42,6 +44,12 @@ spec:
           value: "${DOCKER_USERNAME}"
         - name: DOCKER_PASSWORD
           value: "${DOCKER_PASSWORD}"
+        - name: CGO_ENABLED
+          value: "0"
+        - name: GOOS
+          value: "windows"
+        - name: GOARCH
+          value: "amd64"
         command:
         - powershell.exe
         - -command
@@ -53,6 +61,9 @@ spec:
           Write-Host ('Cloning {0} to C:/work ...' -f $env:GIT_REPOSITORY);
           git clone $env:GIT_REPOSITORY C:/work;
           cd C:/work;
+
+          go build -v  -o ./$env:ESTAFETTE_GIT_NAME.exe;
+          dir;
 
           Write-Host ('Building docker image {0} from file {1} ...' -f $env:DOCKER_IMAGE, $env:DOCKERFILE);
           docker build -t $env:DOCKER_IMAGE -f $env:DOCKERFILE .;
